@@ -625,15 +625,15 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
                 @Override
                 public void onScanResult(int callbackType, ScanResult result) {
                     super.onScanResult(callbackType, result);
-                    if(scanResultsSink != null) {
-                        final Protos.ScanResult scanResult = ProtoMaker.from(result.getDevice(), result);
-                        mainThreadHandler.post(new Runnable() {
-                            @Override
-                            public void run() {
+                    final Protos.ScanResult scanResult = ProtoMaker.from(result.getDevice(), result);
+                    mainThreadHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if(scanResultsSink != null) {
                                 scanResultsSink.success(scanResult.toByteArray());
                             }
-                        });
-                    }
+                        }
+                    });
                 }
 
                 @Override
@@ -681,15 +681,15 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
                 @Override
                 public void onLeScan(final BluetoothDevice bluetoothDevice, int rssi,
                                      byte[] scanRecord) {
-                    if(scanResultsSink != null) {
-                        final Protos.ScanResult scanResult = ProtoMaker.from(bluetoothDevice, scanRecord, rssi);
-                        mainThreadHandler.post(new Runnable() {
-                            @Override
-                            public void run() {
+                    final Protos.ScanResult scanResult = ProtoMaker.from(bluetoothDevice, scanRecord, rssi);
+                    mainThreadHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if(scanResultsSink != null) {
                                 scanResultsSink.success(scanResult.toByteArray());
                             }
-                        });
-                    }
+                        }
+                    });
                 }
             };
         }
@@ -777,35 +777,35 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             log(LogLevel.DEBUG, "[onServicesDiscovered] count: " + gatt.getServices().size() + " status: " + status);
-            if(servicesDiscoveredSink != null) {
-                final Protos.DiscoverServicesResult.Builder p = Protos.DiscoverServicesResult.newBuilder();
-                p.setRemoteId(gatt.getDevice().getAddress());
-                for(BluetoothGattService s : gatt.getServices()) {
-                    p.addServices(ProtoMaker.from(gatt.getDevice(), s, gatt));
-                }
-                mainThreadHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
+            final Protos.DiscoverServicesResult.Builder p = Protos.DiscoverServicesResult.newBuilder();
+            p.setRemoteId(gatt.getDevice().getAddress());
+            for(BluetoothGattService s : gatt.getServices()) {
+                p.addServices(ProtoMaker.from(gatt.getDevice(), s, gatt));
+            }
+            mainThreadHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(servicesDiscoveredSink != null) {
                         servicesDiscoveredSink.success(p.build().toByteArray());
                     }
-                });
-            }
+                }
+            });
         }
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             log(LogLevel.DEBUG, "[onCharacteristicRead] uuid: " + characteristic.getUuid().toString() + " status: " + status);
-            if(characteristicReadSink != null) {
-                final Protos.ReadCharacteristicResponse.Builder p = Protos.ReadCharacteristicResponse.newBuilder();
-                p.setRemoteId(gatt.getDevice().getAddress());
-                p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
-                mainThreadHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
+            final Protos.ReadCharacteristicResponse.Builder p = Protos.ReadCharacteristicResponse.newBuilder();
+            p.setRemoteId(gatt.getDevice().getAddress());
+            p.setCharacteristic(ProtoMaker.from(characteristic, gatt));
+            mainThreadHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(characteristicReadSink != null) {
                         characteristicReadSink.success(p.build().toByteArray());
                     }
-                });
-            }
+                }
+            });
         }
 
         @Override
@@ -843,37 +843,36 @@ public class FlutterBluePlugin implements MethodCallHandler, RequestPermissionsR
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             log(LogLevel.DEBUG, "[onDescriptorRead] uuid: " + descriptor.getUuid().toString() + " status: " + status);
-            if(descriptorReadSink != null) {
-                // Rebuild the ReadAttributeRequest and send back along with response
-                Protos.ReadDescriptorRequest.Builder q = Protos.ReadDescriptorRequest.newBuilder();
-                q.setRemoteId(gatt.getDevice().getAddress());
-                q.setCharacteristicUuid(descriptor.getCharacteristic().getUuid().toString());
-                q.setDescriptorUuid(descriptor.getUuid().toString());
-                if(descriptor.getCharacteristic().getService().getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY) {
-                    q.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
-                } else {
-                    // Reverse search to find service
-                    for(BluetoothGattService s : gatt.getServices()) {
-                        for(BluetoothGattService ss : s.getIncludedServices()) {
-                            if(ss.getUuid().equals(descriptor.getCharacteristic().getService().getUuid())){
-                                q.setServiceUuid(s.getUuid().toString());
-                                q.setSecondaryServiceUuid(ss.getUuid().toString());
-                                break;
-                            }
+            // Rebuild the ReadAttributeRequest and send back along with response
+            Protos.ReadDescriptorRequest.Builder q = Protos.ReadDescriptorRequest.newBuilder();
+            q.setRemoteId(gatt.getDevice().getAddress());
+            q.setCharacteristicUuid(descriptor.getCharacteristic().getUuid().toString());
+            q.setDescriptorUuid(descriptor.getUuid().toString());
+            if(descriptor.getCharacteristic().getService().getType() == BluetoothGattService.SERVICE_TYPE_PRIMARY) {
+                q.setServiceUuid(descriptor.getCharacteristic().getService().getUuid().toString());
+            } else {
+                // Reverse search to find service
+                for(BluetoothGattService s : gatt.getServices()) {
+                    for(BluetoothGattService ss : s.getIncludedServices()) {
+                        if(ss.getUuid().equals(descriptor.getCharacteristic().getService().getUuid())){
+                            q.setServiceUuid(s.getUuid().toString());
+                            q.setSecondaryServiceUuid(ss.getUuid().toString());
+                            break;
                         }
                     }
                 }
-                final Protos.ReadDescriptorResponse.Builder p = Protos.ReadDescriptorResponse.newBuilder();
-                p.setRequest(q);
-                p.setValue(ByteString.copyFrom(descriptor.getValue()));
-                mainThreadHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
+            }
+            final Protos.ReadDescriptorResponse.Builder p = Protos.ReadDescriptorResponse.newBuilder();
+            p.setRequest(q);
+            p.setValue(ByteString.copyFrom(descriptor.getValue()));
+            mainThreadHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if(descriptorReadSink != null) {
                         descriptorReadSink.success(p.build().toByteArray());
                     }
-                });
-            }
-
+                }
+            });
         }
 
         @Override
